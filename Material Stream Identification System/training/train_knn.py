@@ -1,7 +1,7 @@
 import os
 import joblib
 import numpy as np
-from models.svm_model import create_svm
+from models.knn_model import create_knn
 
 SEED = 42
 
@@ -18,14 +18,14 @@ def main():
     print(f"Training samples: {len(y_train)}, feature dim: {X_train.shape[1]}")
     print(f"Test samples:     {len(y_test)}, feature dim: {X_test.shape[1]}")
 
-    svm_model = create_svm()
-    svm_model.fit(X_train, y_train)
+    knn_model = create_knn()
+    knn_model.fit(X_train, y_train)
 
     os.makedirs("saved_models", exist_ok=True)
-    joblib.dump(svm_model, "saved_models/svm.pkl")
+    joblib.dump(knn_model, "saved_models/knn.pkl")
     np.savez("saved_models/test_set.npz", X=X_test, y=y_test)
 
-    print("SVM trained successfully using CNN features")
+    print("KNN trained successfully using CNN features")
     print(f"Train samples: {len(y_train)}")
     print(f"Test samples:  {len(y_test)}")
 

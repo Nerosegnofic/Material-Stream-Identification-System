@@ -10,20 +10,14 @@ from torchvision import transforms
 from torchvision.models import resnet18
 from sklearn.model_selection import train_test_split
 
-# =========================
-# CONFIG
-# =========================
 IMG_SIZE = 224
 SEED = 42
-AUGMENT_FACTOR = 1.3   # at least 30% augmentation
+AUGMENT_FACTOR = 1.3
 
 random.seed(SEED)
 np.random.seed(SEED)
 torch.manual_seed(SEED)
 
-# =========================
-# IMAGE TRANSFORMS
-# =========================
 train_transform = transforms.Compose([
     transforms.Resize((IMG_SIZE, IMG_SIZE)),
     transforms.RandomHorizontalFlip(),
@@ -41,9 +35,6 @@ base_transform = transforms.Compose([
                          std=[0.229, 0.224, 0.225])
 ])
 
-# =========================
-# CNN FEATURE EXTRACTOR
-# =========================
 class CNNFeatureExtractor(nn.Module):
     def __init__(self):
         super().__init__()
@@ -54,9 +45,6 @@ class CNNFeatureExtractor(nn.Module):
         x = self.backbone(x)
         return x.view(x.size(0), -1)
 
-# =========================
-# DATA LOADING
-# =========================
 def load_images(dataset_dir):
     classes = sorted([d for d in os.listdir(dataset_dir)
                       if os.path.isdir(os.path.join(dataset_dir, d))])
@@ -75,9 +63,6 @@ def load_images(dataset_dir):
 
     return images, labels, classes
 
-# =========================
-# AUGMENTATION
-# =========================
 def augment_dataset(images, labels, factor):
     target_len = int(len(images) * factor)
     new_imgs, new_lbls = images[:], labels[:]
@@ -91,9 +76,6 @@ def augment_dataset(images, labels, factor):
 
     return new_imgs, new_lbls
 
-# =========================
-# FEATURE EXTRACTION
-# =========================
 def extract_features(images, labels, model, device):
     model.eval()
     X, y = [], []
@@ -107,32 +89,24 @@ def extract_features(images, labels, model, device):
 
     return np.array(X, dtype=np.float32), np.array(y, dtype=np.int32)
 
-# =========================
-# MAIN PIPELINE
-# =========================
 def build_feature_dataset(dataset_dir, train_file, test_file, test_size=0.2):
-    # Load images
     images, labels, classes = load_images(dataset_dir)
     print(f"Original dataset size: {len(images)}")
 
-    # Train/Test split
     train_imgs, test_imgs, train_lbls, test_lbls = train_test_split(
         images, labels, test_size=test_size, stratify=labels, random_state=SEED
     )
 
-    # Augment training set
     train_imgs, train_lbls = augment_dataset(train_imgs, train_lbls, AUGMENT_FACTOR)
     print(f"Training set after augmentation: {len(train_imgs)}")
     print(f"Test set size (no augmentation): {len(test_imgs)}")
 
-    # Feature extraction
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = CNNFeatureExtractor().to(device)
 
     X_train, y_train = extract_features(train_imgs, train_lbls, model, device)
     X_test, y_test = extract_features(test_imgs, test_lbls, model, device)
 
-    # Save features
     np.savez_compressed(train_file, X=X_train, y=y_train)
     np.savez_compressed(test_file, X=X_test, y=y_test)
 
@@ -143,9 +117,6 @@ def build_feature_dataset(dataset_dir, train_file, test_file, test_size=0.2):
 
     return X_train, y_train, X_test, y_test, classes
 
-# =========================
-# RUN
-# =========================
 if __name__ == "__main__":
     DATASET_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "dataset"))
     TRAIN_FILE = "train_features.npz"
