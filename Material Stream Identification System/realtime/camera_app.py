@@ -10,7 +10,7 @@ from data_preparation.build_features import CNNFeatureExtractor, base_transform
 from models.rejection import reject_unknown
 from utils.constants import CLASS_NAMES
 
-MODEL_PATH = "saved_models/svm.pkl"
+MODEL_PATH = "../training/saved_models/svm.pkl"
 THRESHOLD = 0.5
 SMOOTHING_FRAMES = 5
 
