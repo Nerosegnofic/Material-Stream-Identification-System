@@ -2,7 +2,7 @@ from sklearn.metrics import accuracy_score, classification_report
 from utils.constants import CLASS_NAMES
 from models.rejection import reject_unknown
 
-def evaluate(model, X_test, y_test, threshold=0.6):
+def evaluate(model, X_test, y_test, threshold=0.5):
     probs = model.predict_proba(X_test)
 
     preds = []
