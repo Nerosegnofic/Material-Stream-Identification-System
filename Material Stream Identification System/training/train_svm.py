@@ -23,7 +23,7 @@ def main():
 
     os.makedirs("saved_models", exist_ok=True)
     joblib.dump(svm_model, "saved_models/svm.pkl")
-    np.savez("saved_models/test_set.npz", X=X_test, y=y_test)
+    np.savez("saved_models/test_set_svm.npz", X=X_test, y=y_test)
 
     print("SVM trained successfully using CNN features")
     print(f"Train samples: {len(y_train)}")
