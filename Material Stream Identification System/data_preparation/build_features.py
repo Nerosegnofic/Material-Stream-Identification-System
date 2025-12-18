@@ -1,148 +1,40 @@
 import os
 import random
 import numpy as np
-from PIL import Image, ImageEnhance, ImageFilter, ImageDraw
+from PIL import Image
+from tqdm import tqdm
+
 import torch
 import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-from torchvision import models, transforms
+from torchvision import transforms
+from torchvision.models import resnet18
+from sklearn.model_selection import train_test_split
 
 # =========================
 # CONFIG
 # =========================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATASET_DIR = os.path.join(BASE_DIR, "..", "dataset")
-DATASET_DIR = os.path.abspath(DATASET_DIR)
-BATCH_SIZE = 16
-EPOCHS = 5
-LR = 1e-4
 IMG_SIZE = 224
-MODEL_PATH = "cnn_model.pth"
+SEED = 42
+AUGMENT_FACTOR = 1.3   # at least 30% augmentation
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-# =========================
-# SAFE IMAGE CHECK
-# =========================
-def is_valid_image(path):
-    try:
-        with Image.open(path) as img:
-            img.verify()
-        return True
-    except Exception:
-        return False
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
 
 # =========================
-# AUGMENTATIONS
+# IMAGE TRANSFORMS
 # =========================
-def rotate_image(image):
-    angle = random.uniform(-45, 45)
-    return image.rotate(angle, expand=False, fillcolor=(128, 128, 128))
+train_transform = transforms.Compose([
+    transforms.Resize((IMG_SIZE, IMG_SIZE)),
+    transforms.RandomHorizontalFlip(),
+    transforms.RandomRotation(30),
+    transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                         std=[0.229, 0.224, 0.225])
+])
 
-def horizontal_flip(image):
-    return image.transpose(Image.FLIP_LEFT_RIGHT)
-
-def vertical_flip(image):
-    return image.transpose(Image.FLIP_TOP_BOTTOM)
-
-def random_scale(image):
-    scale_factor = random.uniform(0.7, 1.3)
-    width, height = image.size
-    new_width = int(width * scale_factor)
-    new_height = int(height * scale_factor)
-    scaled = image.resize((new_width, new_height), Image.LANCZOS)
-    if scale_factor > 1:
-        left = (new_width - width) // 2
-        top = (new_height - height) // 2
-        scaled = scaled.crop((left, top, left + width, top + height))
-    else:
-        fill_color = tuple(random.randint(50, 200) for _ in range(3))
-        result = Image.new(image.mode, (width, height), fill_color)
-        paste_x = (width - new_width) // 2
-        paste_y = (height - new_height) // 2
-        result.paste(scaled, (paste_x, paste_y))
-        scaled = result
-    return scaled
-
-def color_jitter(image):
-    brightness_factor = random.uniform(0.5, 1.5)
-    image = ImageEnhance.Brightness(image).enhance(brightness_factor)
-    contrast_factor = random.uniform(0.5, 1.5)
-    image = ImageEnhance.Contrast(image).enhance(contrast_factor)
-    saturation_factor = random.uniform(0.5, 1.5)
-    image = ImageEnhance.Color(image).enhance(saturation_factor)
-    return image
-
-def gaussian_blur(image):
-    radius = random.uniform(0.5, 3.0)
-    return image.filter(ImageFilter.GaussianBlur(radius=radius))
-
-# Compose random augmentations
-AUGMENTATIONS = [rotate_image, horizontal_flip, vertical_flip, random_scale, color_jitter, gaussian_blur]
-
-def apply_random_augmentations(image, num_aug=2):
-    for _ in range(num_aug):
-        aug = random.choice(AUGMENTATIONS)
-        image = aug(image)
-    return image
-
-# =========================
-# DATASET
-# =========================
-class ImageDataset(Dataset):
-    def __init__(self, root, transform=None, augment=True, augment_factor=0.4):
-        self.samples = []
-        self.classes = sorted(os.listdir(root))
-        self.class_to_idx = {c: i for i, c in enumerate(self.classes)}
-        self.transform = transform
-        self.augment = augment
-        self.augment_factor = augment_factor
-
-        for cls in self.classes:
-            cls_path = os.path.join(root, cls)
-            if not os.path.isdir(cls_path):
-                continue
-            for f in os.listdir(cls_path):
-                path = os.path.join(cls_path, f)
-                if is_valid_image(path):
-                    self.samples.append((path, self.class_to_idx[cls]))
-
-        # Add augmented samples
-        if augment:
-            aug_count = int(len(self.samples) * self.augment_factor)
-            augmented_samples = random.choices(self.samples, k=aug_count)
-            self.samples += [(path, label, True) for path, label in augmented_samples]  # mark as augmented
-        print(f"Loaded {len(self.samples)} images ({len(self.classes)} classes, augmented included)")
-
-    def __len__(self):
-        return len(self.samples)
-
-    def __getitem__(self, idx):
-        sample = self.samples[idx]
-        if len(sample) == 2:
-            path, label = sample
-            do_aug = False
-        else:
-            path, label, do_aug = sample
-
-        try:
-            img = Image.open(path).convert("RGB")
-        except Exception:
-            return self.__getitem__((idx + 1) % len(self.samples))
-
-        if self.augment and do_aug:
-            img = apply_random_augmentations(img)
-
-        if self.transform:
-            img = self.transform(img)
-
-        return img, label
-
-# =========================
-# TRANSFORMS
-# =========================
-transform = transforms.Compose([
+base_transform = transforms.Compose([
     transforms.Resize((IMG_SIZE, IMG_SIZE)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -150,48 +42,113 @@ transform = transforms.Compose([
 ])
 
 # =========================
-# MODEL
+# CNN FEATURE EXTRACTOR
 # =========================
-def build_model(num_classes):
-    model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-    model.fc = nn.Linear(model.fc.in_features, num_classes)
-    return model
+class CNNFeatureExtractor(nn.Module):
+    def __init__(self):
+        super().__init__()
+        base = resnet18(weights="IMAGENET1K_V1")
+        self.backbone = nn.Sequential(*list(base.children())[:-1])
 
-# =========================
-# TRAIN LOOP
-# =========================
-def train_epoch(model, loader, optimizer, criterion):
-    model.train()
-    total_loss = 0
-    for imgs, labels in loader:
-        imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
-        optimizer.zero_grad()
-        outputs = model(imgs)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
-        total_loss += loss.item()
-    return total_loss / len(loader)
+    def forward(self, x):
+        x = self.backbone(x)
+        return x.view(x.size(0), -1)
 
 # =========================
-# MAIN
+# DATA LOADING
 # =========================
-def main():
-    dataset = ImageDataset(DATASET_DIR, transform, augment=True, augment_factor=0.4)
-    loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, pin_memory=torch.cuda.is_available())
+def load_images(dataset_dir):
+    classes = sorted([d for d in os.listdir(dataset_dir)
+                      if os.path.isdir(os.path.join(dataset_dir, d))])
+    images, labels = [], []
 
-    model = build_model(len(dataset.classes)).to(DEVICE)
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=LR)
+    for idx, cls in enumerate(classes):
+        cls_path = os.path.join(dataset_dir, cls)
+        for fname in os.listdir(cls_path):
+            path = os.path.join(cls_path, fname)
+            try:
+                img = Image.open(path).convert("RGB")
+                images.append(img)
+                labels.append(idx)
+            except:
+                continue
 
-    print(f"Training on {DEVICE}")
+    return images, labels, classes
 
-    for epoch in range(EPOCHS):
-        loss = train_epoch(model, loader, optimizer, criterion)
-        print(f"Epoch [{epoch+1}/{EPOCHS}] - Loss: {loss:.4f}")
+# =========================
+# AUGMENTATION
+# =========================
+def augment_dataset(images, labels, factor):
+    target_len = int(len(images) * factor)
+    new_imgs, new_lbls = images[:], labels[:]
 
-    torch.save(model.state_dict(), MODEL_PATH)
-    print(f"Model saved to {MODEL_PATH}")
+    while len(new_imgs) < target_len:
+        idx = random.randint(0, len(images) - 1)
+        img = train_transform(images[idx])
+        img = transforms.ToPILImage()(img)
+        new_imgs.append(img)
+        new_lbls.append(labels[idx])
 
+    return new_imgs, new_lbls
+
+# =========================
+# FEATURE EXTRACTION
+# =========================
+def extract_features(images, labels, model, device):
+    model.eval()
+    X, y = [], []
+
+    with torch.no_grad():
+        for img, lbl in tqdm(zip(images, labels), total=len(images)):
+            t = base_transform(img).unsqueeze(0).to(device)
+            feat = model(t).cpu().numpy().squeeze()
+            X.append(feat)
+            y.append(lbl)
+
+    return np.array(X, dtype=np.float32), np.array(y, dtype=np.int32)
+
+# =========================
+# MAIN PIPELINE
+# =========================
+def build_feature_dataset(dataset_dir, train_file, test_file, test_size=0.2):
+    # Load images
+    images, labels, classes = load_images(dataset_dir)
+    print(f"Original dataset size: {len(images)}")
+
+    # Train/Test split
+    train_imgs, test_imgs, train_lbls, test_lbls = train_test_split(
+        images, labels, test_size=test_size, stratify=labels, random_state=SEED
+    )
+
+    # Augment training set
+    train_imgs, train_lbls = augment_dataset(train_imgs, train_lbls, AUGMENT_FACTOR)
+    print(f"Training set after augmentation: {len(train_imgs)}")
+    print(f"Test set size (no augmentation): {len(test_imgs)}")
+
+    # Feature extraction
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = CNNFeatureExtractor().to(device)
+
+    X_train, y_train = extract_features(train_imgs, train_lbls, model, device)
+    X_test, y_test = extract_features(test_imgs, test_lbls, model, device)
+
+    # Save features
+    np.savez_compressed(train_file, X=X_train, y=y_train)
+    np.savez_compressed(test_file, X=X_test, y=y_test)
+
+    print("Saved training features:", train_file)
+    print("Saved test features:", test_file)
+    print("Training feature shape:", X_train.shape)
+    print("Test feature shape:", X_test.shape)
+
+    return X_train, y_train, X_test, y_test, classes
+
+# =========================
+# RUN
+# =========================
 if __name__ == "__main__":
-    main()
+    DATASET_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "dataset"))
+    TRAIN_FILE = "train_features.npz"
+    TEST_FILE = "test_features.npz"
+
+    build_feature_dataset(DATASET_DIR, TRAIN_FILE, TEST_FILE)
