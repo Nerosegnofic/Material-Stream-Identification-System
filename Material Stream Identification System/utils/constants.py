@@ -1,9 +1,9 @@
 CLASS_NAMES = {
-    0: "glass",
-    1: "paper",
-    2: "cardboard",
-    3: "plastic",
-    4: "metal",
+    0: "cardboard",
+    1: "glass",
+    2: "metal",
+    3: "paper",
+    4: "plastic",
     5: "trash",
     6: "unknown"
 }
