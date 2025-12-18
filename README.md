@@ -646,7 +646,7 @@ knn_model = create_knn()  # k=4, distance-weighted
    - Augmentation: Improves generalization and reduces overfitting
    - **For our project:** Use both in sequence
 
-3. **our Implementation:**
+3. **Our Implementation:**
    - Well-structured pipeline with proper ordering
    - Good choice of techniques for image classification
    - Ready for hyperparameter tuning and optimization
