@@ -11,7 +11,7 @@ from models.rejection import reject_unknown
 from utils.constants import CLASS_NAMES
 
 MODEL_PATH = "saved_models/svm.pkl"
-THRESHOLD = 0.35
+THRESHOLD = 0.5
 SMOOTHING_FRAMES = 5
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -70,3 +70,4 @@ while True:
 
 cap.release()
 cv2.destroyAllWindows()
+
