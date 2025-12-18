@@ -47,7 +47,6 @@ while True:
 
     probs = classifier.predict_proba(feat)[0]
     
-    # Debug: Print top prediction details
     top3_idx = np.argsort(probs)[-3:][::-1]
     print(f"Top: {CLASS_NAMES[top3_idx[0]]} ({probs[top3_idx[0]]:.2f}), "
           f"2nd: {CLASS_NAMES[top3_idx[1]]} ({probs[top3_idx[1]]:.2f})")
@@ -69,5 +68,3 @@ while True:
 
 cap.release()
 cv2.destroyAllWindows()
-
-
