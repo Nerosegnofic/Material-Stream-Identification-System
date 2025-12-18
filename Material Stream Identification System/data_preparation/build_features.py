@@ -12,7 +12,7 @@ from sklearn.model_selection import train_test_split
 
 IMG_SIZE = 224
 SEED = 42
-AUGMENT_FACTOR = 1.3
+AUGMENT_FACTOR = 1.5
 
 random.seed(SEED)
 np.random.seed(SEED)
@@ -21,9 +21,17 @@ torch.manual_seed(SEED)
 train_transform = transforms.Compose([
     transforms.Resize((IMG_SIZE, IMG_SIZE)),
     transforms.RandomHorizontalFlip(),
+    transforms.RandomVerticalFlip(),
     transforms.RandomRotation(30),
+    transforms.RandomAffine(
+        degrees=0,
+        translate=(0.1, 0.1),
+        scale=(0.9, 1.1),
+        shear=10
+    ),
     transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3),
     transforms.ToTensor(),
+    transforms.RandomErasing(p=0.2, scale=(0.02, 0.15)),
     transforms.Normalize(mean=[0.485, 0.456, 0.406],
                          std=[0.229, 0.224, 0.225])
 ])
@@ -70,7 +78,6 @@ def augment_dataset(images, labels, factor):
     while len(new_imgs) < target_len:
         idx = random.randint(0, len(images) - 1)
         img = train_transform(images[idx])
-        img = transforms.ToPILImage()(img)
         new_imgs.append(img)
         new_lbls.append(labels[idx])
 
@@ -82,7 +89,11 @@ def extract_features(images, labels, model, device):
 
     with torch.no_grad():
         for img, lbl in tqdm(zip(images, labels), total=len(images)):
-            t = base_transform(img).unsqueeze(0).to(device)
+            if isinstance(img, Image.Image):
+                t = base_transform(img).unsqueeze(0).to(device)
+            else:
+                t = img.unsqueeze(0).to(device)
+
             feat = model(t).cpu().numpy().squeeze()
             X.append(feat)
             y.append(lbl)
