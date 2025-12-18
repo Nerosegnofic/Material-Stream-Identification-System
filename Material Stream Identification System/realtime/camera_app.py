@@ -34,7 +34,6 @@ while True:
 
     h, w, _ = frame.shape
 
-    # Debug: Print resolution once
     if not debug_printed:
         print(f"Camera Resolution: {w}x{h}")
         debug_printed = True
@@ -70,4 +69,5 @@ while True:
 
 cap.release()
 cv2.destroyAllWindows()
+
 
