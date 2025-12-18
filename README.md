@@ -315,7 +315,7 @@ KNeighborsClassifier(
 #### When to Use Each Algorithm
 
 **Use SVM when:**
-- Working with high-dimensional feature spaces (like our 512D ResNet features)
+- Working with high-dimensional feature spaces (like Our 512D ResNet features)
 - You need fast prediction times for production deployment
 - Dataset is small to medium-sized (< 10,000 samples)
 - Clear margin separation exists between classes
@@ -388,7 +388,7 @@ class CNNFeatureExtractor(nn.Module):
 ### 2. Data Augmentation
 
 #### Overview
-Data augmentation artificially expands the training dataset by applying random transformations to existing images, increasing dataset size by 70% (AUGMENT_FACTOR = 1.7) in our implementation.
+Data augmentation artificially expands the training dataset by applying random transformations to existing images, increasing dataset size by 70% (AUGMENT_FACTOR = 1.7) in Our implementation.
 
 #### Advantages ✅
 
@@ -500,7 +500,7 @@ Raw Images (100 samples)
 
 ## Implementation Analysis
 
-### our Current Pipeline
+### Our Current Pipeline
 
 ```python
 # Step 1: Load and split data
@@ -520,7 +520,7 @@ svm_model = create_svm()  # RBF kernel, C=10.0
 knn_model = create_knn()  # k=4, distance-weighted
 ```
 
-### Strengths of our Implementation ✅
+### Strengths of Our Implementation ✅
 
 1. **Proper Pipeline Order:** Augmentation → Feature Extraction → Classification
 2. **Transfer Learning:** Leveraging ImageNet pre-trained ResNet18
@@ -568,14 +568,14 @@ knn_model = create_knn()  # k=4, distance-weighted
 
 ## Recommendations
 
-### For our Material Stream Identification System
+### For Our Material Stream Identification System
 
 #### Algorithm Selection
 
 **Primary Recommendation: SVM**
 
 **Rationale:**
-1. ✅ our 512D ResNet features are high-dimensional (SVM excels here)
+1. ✅ Our 512D ResNet features are high-dimensional (SVM excels here)
 2. ✅ Dataset appears small-medium sized (SVM trains reasonably fast)
 3. ✅ Production deployment needs fast inference (SVM predicts quickly)
 4. ✅ Memory efficiency important (SVM stores only support vectors)
@@ -595,7 +595,7 @@ knn_model = create_knn()  # k=4, distance-weighted
 
 **Feature Extraction:**
 - ✅ Keep ResNet18 extraction (proven effective for images)
-- 🔧 Consider fine-tuning ResNet18 on our material images if accuracy insufficient
+- 🔧 Consider fine-tuning ResNet18 on Our material images if accuracy insufficient
 - 🔧 Experiment with deeper models (ResNet50, EfficientNet) if needed
 
 **Data Augmentation:**
@@ -621,7 +621,7 @@ knn_model = create_knn()  # k=4, distance-weighted
 #### Phase 3: Advanced Techniques
 - 🔧 Feature selection (reduce dimensionality)
 - 🔧 Ensemble methods (SVM + KNN voting)
-- 🔧 Fine-tune ResNet18 on our data
+- 🔧 Fine-tune ResNet18 on Our data
 
 #### Phase 4: Production Optimization
 - 🔧 Model compression (quantization)
@@ -638,15 +638,15 @@ knn_model = create_knn()  # k=4, distance-weighted
    - SVM: Better for high-dimensional data, faster inference, lower memory (**~89% accuracy**)
    - KNN: Simpler, interpretable, no training time, incremental learning (**~87% accuracy**)
    - **Performance Gap:** SVM outperforms KNN by ~2% on this dataset
-   - **For our project:** SVM is the better choice for production
+   - **For Our project:** SVM is the better choice for production
 
 2. **Feature Extraction vs Augmentation:**
    - These are **complementary, not competing** techniques
    - Feature Extraction: Enables efficient classical ML algorithms
    - Augmentation: Improves generalization and reduces overfitting
-   - **For our project:** Use both in sequence
+   - **For Our project:** Use both in sequence
 
-3. **our Implementation:**
+3. **Our Implementation:**
    - Well-structured pipeline with proper ordering
    - Good choice of techniques for image classification
    - Ready for hyperparameter tuning and optimization
