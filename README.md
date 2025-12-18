@@ -337,7 +337,7 @@ KNeighborsClassifier(
 ### 1. Feature Extraction
 
 #### Overview
-Feature extraction transforms raw images into compact, discriminative feature vectors using pre-trained deep learning models (ResNet18 in Our case).
+Feature extraction transforms raw images into compact, discriminative feature vectors using pre-trained deep learning models (ResNet18 in our case).
 
 #### Advantages ✅
 
