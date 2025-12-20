@@ -17,6 +17,15 @@ except ImportError as e:
         "Ensure 'Material Stream Identification System' is a valid python package (has __init__.py if needed, or just importable).")
     sys.exit(1)
 
+MODEL_TO_PROJECT_ID = {
+    0: 2,  # cardboard -> 2
+    1: 0,  # glass -> 0
+    2: 4,  # metal -> 4
+    3: 1,  # paper -> 1
+    4: 3,  # plastic -> 3
+    5: 5,  # trash -> 5
+    6: 6,  # unknown -> 6
+}
 
 def predict(dataFilePath, bestModelPath):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -69,7 +78,9 @@ def predict(dataFilePath, bestModelPath):
 
     predictions = clf.predict(X)
 
-    return predictions.tolist()
+    predictions_mapped = [MODEL_TO_PROJECT_ID[p] for p in predictions]
+
+    return predictions_mapped
 
 # run test
 if __name__ == "__main__":
