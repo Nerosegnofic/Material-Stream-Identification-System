@@ -87,7 +87,6 @@ def predict(dataFilePath, bestModelPath):
 
     return predictions_mapped
 
-
 # run test
 if __name__ == "__main__":
     import sys
