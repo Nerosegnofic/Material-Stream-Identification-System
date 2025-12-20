@@ -5,6 +5,7 @@ import numpy as np
 import joblib
 from PIL import Image
 from sklearn.preprocessing import normalize
+from models.rejection import reject_unknown
 
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(project_root, "Material Stream Identification System"))
@@ -26,6 +27,8 @@ MODEL_TO_PROJECT_ID = {
     5: 5,  # trash -> 5
     6: 6,  # unknown -> 6
 }
+
+THRESHOLD = 0.5
 
 def predict(dataFilePath, bestModelPath):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -76,11 +79,14 @@ def predict(dataFilePath, bestModelPath):
         print(f"Error loading model from {bestModelPath}: {e}")
         return []
 
-    predictions = clf.predict(X)
+    probs = clf.predict_proba(X)
 
-    predictions_mapped = [MODEL_TO_PROJECT_ID[p] for p in predictions]
+    predictions_internal = [reject_unknown(p, threshold=THRESHOLD) for p in probs]
+
+    predictions_mapped = [MODEL_TO_PROJECT_ID[p] for p in predictions_internal]
 
     return predictions_mapped
+
 
 # run test
 if __name__ == "__main__":
