@@ -3,6 +3,7 @@ import sys
 import torch
 import numpy as np
 import joblib
+import csv
 from PIL import Image
 from sklearn.preprocessing import normalize
 from models.rejection import reject_unknown
@@ -15,7 +16,9 @@ try:
 except ImportError as e:
     print(f"Error importing project modules: {e}")
     print(
-        "Ensure 'Material Stream Identification System' is a valid python package (has __init__.py if needed, or just importable).")
+        "Ensure 'Material Stream Identification System' is a valid python package "
+        "(has __init__.py if needed, or just importable)."
+    )
     sys.exit(1)
 
 MODEL_TO_PROJECT_ID = {
@@ -28,18 +31,32 @@ MODEL_TO_PROJECT_ID = {
     6: 6,  # unknown -> 6
 }
 
+PROJECT_ID_TO_CLASS_NAME = {
+    0: "glass",
+    1: "paper",
+    2: "cardboard",
+    3: "plastic",
+    4: "metal",
+    5: "trash",
+    6: "unknown"
+}
+
 THRESHOLD = 0.5
 
-def predict(dataFilePath, bestModelPath):
+def predict(dataFilePath, bestModelPath, output_csv="predictions.csv"):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     feature_extractor = CNNFeatureExtractor().to(device)
     feature_extractor.eval()
 
     features_list = []
-    valid_images_count = 0
+    image_names = []
 
     try:
-        files = sorted([f for f in os.listdir(dataFilePath) if os.path.isfile(os.path.join(dataFilePath, f))])
+        files = sorted(
+            f for f in os.listdir(dataFilePath)
+            if os.path.isfile(os.path.join(dataFilePath, f))
+        )
     except FileNotFoundError:
         print(f"Error: Directory not found: {dataFilePath}")
         return []
@@ -55,23 +72,23 @@ def predict(dataFilePath, bestModelPath):
                 img = Image.open(path).convert("RGB")
                 img_tensor = base_transform(img).unsqueeze(0).to(device)
                 feat = feature_extractor(img_tensor).cpu().numpy().squeeze()
-                features_list.append(feat)
-                valid_images_count += 1
 
-            except Exception as e:
-                # print(f"Error processing {fname}: {e}")
+                features_list.append(feat)
+                image_names.append(fname)
+
+            except Exception:
                 continue
 
-    if valid_images_count == 0:
+    if not features_list:
         print("No valid images processed.")
         return []
 
     X = np.array(features_list, dtype=np.float32)
 
-    if valid_images_count == 1:
+    if X.ndim == 1:
         X = X.reshape(1, -1)
 
-    X = normalize(X, norm='l2', axis=1)
+    X = normalize(X, norm="l2", axis=1)
 
     try:
         clf = joblib.load(bestModelPath)
@@ -81,32 +98,54 @@ def predict(dataFilePath, bestModelPath):
 
     probs = clf.predict_proba(X)
 
-    predictions_internal = [reject_unknown(p, threshold=THRESHOLD) for p in probs]
+    predictions_internal = [
+        reject_unknown(p, threshold=THRESHOLD) for p in probs
+    ]
 
-    predictions_mapped = [MODEL_TO_PROJECT_ID[p] for p in predictions_internal]
+    predictions_mapped = [
+        MODEL_TO_PROJECT_ID[p] for p in predictions_internal
+    ]
+
+    try:
+        with open(output_csv, mode="w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["image_name", "prediction_id", "prediction_class"])
+
+            for img, pid in zip(image_names, predictions_mapped):
+                writer.writerow([
+                    img,
+                    pid,
+                    PROJECT_ID_TO_CLASS_NAME.get(pid, "unknown")
+                ])
+
+        print(f"Predictions saved to: {output_csv}")
+
+    except Exception as e:
+        print(f"Failed to write CSV: {e}")
 
     return predictions_mapped
 
-# run test
 if __name__ == "__main__":
-    import sys
-
     default_data_path = "sample_test_images"
-    default_model_path = "training\saved_models\svm.pkl"
+    default_model_path = "training/saved_models/svm.pkl"
+    default_output_csv = "predictions.csv"
 
-    if len(sys.argv) == 3:
+    if len(sys.argv) >= 3:
         data_path = sys.argv[1]
         model_path = sys.argv[2]
+        output_csv = sys.argv[3] if len(sys.argv) == 4 else default_output_csv
     else:
         data_path = default_data_path
         model_path = default_model_path
+        output_csv = default_output_csv
 
-    print(f"Testing predict function...")
+    print("Testing predict function...")
     print(f"Data Path: {data_path}")
     print(f"Model Path: {model_path}")
+    print(f"Output CSV: {output_csv}")
 
     try:
-        preds = predict(data_path, model_path)
+        preds = predict(data_path, model_path, output_csv)
         print(f"Predictions: {preds}")
         print(f"Number of predictions: {len(preds)}")
     except Exception as e:
